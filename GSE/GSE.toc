@@ -1,9 +1,9 @@
-## Interface: 110007, 40401, 11506, 110100
+## Interface: 50400
 
 ## Title: |cFFFFFFFFGS|r|cFF00FFFFE|r
 ## Notes: Create Sequence buttons and Macros using powerful API functions.
 ## Author: TimothyLuke
-## Version: @project-version@
+## Version: 5.4.8-Patron
 ## SavedVariables: GSEOptions GSESequences GSESpellCache GSEVariables GSEMacros
 ## SavedVariablesPerCharacter: GSE_C GSELegacyLibraryBackup
 ## OptionalDeps: WeakAuras Talented ElvUI Details WagoAnalytics ConsolePort ConsolePort_Bar Bartender4

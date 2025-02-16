@@ -5,7 +5,7 @@ local GNOME = Statics.DebugModules["Translator"]
 
 local L = GSE.L
 
---- GSE.TranslateSequence will translate from local spell name to spell id and back again.\
+--- GSE.TranslateSequence will translate from local spell name to spell id and back again.
 -- Mode of "STRING" will return local names where mode "ID" will return id's
 -- dropAbsolute will remove "$$" from the start of lines.
 function GSE.TranslateSequence(tab, mode, dropAbsolute)
@@ -111,7 +111,7 @@ function GSE.TranslateString(instring, mode, cleanNewLines, dropAbsolute)
                             etc = string.sub(etc, 1, trimRight - 1)
                         end
                         if mode == Statics.TranslatorMode.String then
-                            if tonumber(GetCVar("ActionButtonUseKeyDown")) == 1 then
+                            if GetCVar("ActionButtonUseKeyDown") == "1" then
                                 etc = etc .. " LeftButton t"
                             end
                         end
@@ -226,17 +226,15 @@ function GSE.TranslateSpell(str, mode, cleanNewLines, absolute)
             if GSEOptions.showCurrentSpells then
                 local test = tonumber(etc)
                 if test then
-                    local currentSpell = FindSpellOverrideByID(test)
-                    if currentSpell then
-                        ---@diagnostic disable-next-line: cast-local-type
-                        etc = currentSpell
+                    -- No override in MoP, just use spell directly
+                    local name = GetSpellInfo(test)
+                    if name then
+                        etc = name
                     end
                 end
             end
         end
         local foundspell = GSE.GetSpellId(etc, mode, absolute)
-
-        -- print("Foudn Spell: " .. foundspell .. " etc:" .. etc .. " mode:" .. mode .. " str:" .. str)
 
         if foundspell then
             GSE.PrintDebugMessage("Translating Spell ID : " .. etc .. " to " .. foundspell, GNOME)
@@ -278,11 +276,7 @@ function GSE.GetConditionalsFromString(str)
         str = string.sub(str, rightstr + 1)
         GSE.PrintDebugMessage("str changed to: " .. str, GNOME)
     end
-    -- if not cleanNewLines then
-    --     str = string.match(str, "^%s*(.-)%s*$")
-    -- end
-    -- Check for resets
-    GSE.PrintDebugMessage("checking for reset= in " .. str, GNOME)
+
     local resetleft = string.find(str, "reset=")
     if not GSE.isEmpty(resetleft) then
         GSE.PrintDebugMessage("found reset= at" .. resetleft, GNOME)
@@ -327,102 +321,5 @@ function GSE.GetSpellId(spellstring, mode, absolute)
     end
     local returnval, name, rank, spellId
 
-    local spellinfo = C_Spell.GetSpellInfo(spellstring)
-    if not spellinfo then
-        if type(spellstring) == "string" then
-            ---@diagnostic disable-next-line: missing-fields
-            spellinfo = {}
-            spellinfo.name = spellstring
-            if GSESpellCache[GetLocale()][spellinfo] then
-                spellinfo.spellID = GSESpellCache[GetLocale()][spellinfo]
-            end
-        end
-    end
-    rank = spellinfo.rank and spellinfo.rank or nil
-    spellId = spellinfo.spellID and spellinfo.spellID or nil
-    name = spellinfo.name
-    if mode ~= Statics.TranslatorMode.ID then
-        if not GSE.isEmpty(rank) then
-            returnval = name .. "(" .. rank .. ")"
-        else
-            returnval = name
-        end
-    else
-        returnval = spellId
-        -- Check for overrides like Crusade and Avenging Wrath.
-        if not absolute and not GSE.isEmpty(returnval) then
-            if FindBaseSpellByID(returnval) then
-                returnval = FindBaseSpellByID(returnval)
-            -- if type(returnval) == "table" then
-            --     returnval = returnval.spellID
-            -- end
-            end
-            -- Still need Heart of Azeroth overrides.
-            if not GSE.isEmpty(Statics.BaseSpellTable[returnval]) then
-                returnval = Statics.BaseSpellTable[returnval]
-            end
-        end
-    end
-    if not GSE.isEmpty(returnval) then
-        if mode == Statics.TranslatorMode.ID and tonumber(spellstring) == nil then
-            if
-                GSE.isEmpty(GSESpellCache[GetLocale()][spellstring]) == true or
-                    GSESpellCache[GetLocale()][spellstring] ~= returnval
-             then
-                GSESpellCache[GetLocale()][spellstring] = returnval
-            end
-        end
-        GSE.PrintDebugMessage(
-            "Converted " .. spellstring .. " to " .. returnval .. " using mode " .. mode,
-            "Translator"
-        )
-    else
-        if not GSE.isEmpty(spellstring) then
-            GSE.PrintDebugMessage(spellstring .. " was not found", "Translator")
-            if not GSE.isEmpty(GSESpellCache[GetLocale()][spellstring]) then
-                returnval = GSESpellCache[GetLocale()][spellstring]
-            end
-            if GSE.isEmpty(returnval) then
-                -- hail mary - try the enUS cache
-                if not GSE.isEmpty(GSESpellCache["enUS"][spellstring]) then
-                    returnval = GSESpellCache["enUS"][spellstring]
-                end
-            end
-        else
-            GSE.PrintDebugMessage("Nothing was there to be found", "Translator")
-        end
-    end
-    -- print("returning " .. returnval .. " from " .. spellstring)
-    return returnval
-end
-
---- Takes a section of a sequence and returns the spells used.
-function GSE.IdentifySpells(tab)
-    local foundspells = {}
-    local returnval = ""
-    for _, p in ipairs(tab) do
-        -- Run a regex to find all spell id's from the table and add them to the table foundspells
-        for m in string.gmatch(p, "%w%d+") do
-            foundspells[m] = 1
-        end
-    end
-
-    for k, _ in pairs(foundspells) do
-        if not GSE.isEmpty(GSE.GetSpellId(k, Statics.TranslatorMode.Current, false)) then
-            local wowheaddata = "spell=" .. k
-
-            returnval =
-                returnval ..
-                '<a href="http://www.wowhead.com/spell=' ..
-                    k ..
-                        '" data-wowhead="' ..
-                            wowheaddata .. '">' .. GSE.GetSpellId(k, Statics.TranslatorMode.Current, false) .. "</a>, "
-        end
-    end
-
-    return string.sub(returnval, 1, string.len(returnval) - 2), foundspells
-end
-
-GSE.TranslatorAvailable = true
-
-GSE.DebugProfile("Translator")
+    -- Replace C_Spell.GetSpellInfo with GetSpellInfo
+    local spellinfo = {GetSpell

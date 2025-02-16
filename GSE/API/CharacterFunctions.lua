@@ -9,8 +9,10 @@ function GSE.GetCurrentSpecID()
     if GSE.GameMode <= 4 then
         return GSE.GetCurrentClassID() and GSE.GetCurrentClassID()
     else
-        local currentSpec = GetSpecialization()
-        return currentSpec and select(1, GetSpecializationInfo(currentSpec)) or 0
+        -- MoP uses GetActiveTalentGroup() instead of GetSpecialization()
+        local currentSpec = GetActiveTalentGroup()
+        -- In MoP we return the talent group directly (1 or 2)
+        return currentSpec or 0
     end
 end
 
@@ -19,7 +21,6 @@ function GSE.GetGCD()
     local gcd
     local haste = UnitSpellHaste("player")
     gcd = 1.5 / (1 + 0.01 * haste)
-
     return gcd
 end
 
@@ -29,7 +30,7 @@ function GSE.GetCurrentClassID()
     return currentclassId
 end
 
---- Return the characters class id
+--- Return the characters class normalized name
 function GSE.GetCurrentClassNormalisedName()
     local _, classnormalisedname, _ = UnitClass("player")
     return classnormalisedname
@@ -42,11 +43,12 @@ function GSE.GetClassIDforSpec(specid)
         -- Classic WoW
         classid = Statics.SpecIDClassList[specid]
     else
-        local id, name, description, icon, role, class = GetSpecializationInfoByID(specid)
-        if specid <= 13 then
+        -- MoP doesn't have GetSpecializationInfoByID, use GetTalentTabInfo
+        local _, _, _, _, role, class = GetTalentTabInfo(specid)
+        if specid <= 11 then  -- MoP only has 11 classes
             classid = specid
         else
-            for i = 1, 13, 1 do
+            for i = 1, 11, 1 do
                 local _, st, _ = GetClassInfo(i)
                 if class == st then
                     classid = i
@@ -65,25 +67,26 @@ function GSE.GetClassIcon(classid)
     classicon[4] = "Interface\\Icons\\inv_throwingknife_04" -- Rogue
     classicon[5] = "Interface\\Icons\\inv_staff_30" -- Priest
     classicon[6] = "Interface\\Icons\\inv_sword_27" -- Death Knight
-    classicon[7] = "Interface\\Icons\\inv_jewelry_talisman_04" -- SWhaman
+    classicon[7] = "Interface\\Icons\\inv_jewelry_talisman_04" -- Shaman
     classicon[8] = "Interface\\Icons\\inv_staff_13" -- Mage
     classicon[9] = "Interface\\Icons\\spell_nature_drowsy" -- Warlock
     classicon[10] = "Interface\\Icons\\Spell_Holy_FistOfJustice" -- Monk
     classicon[11] = "Interface\\Icons\\inv_misc_monsterclaw_04" -- Druid
-    classicon[12] = "Interface\\Icons\\INV_Weapon_Glave_01" -- DEMONHUNTER
     return classicon[classid]
 end
 
 --- Check if the specID provided matches the players current class
 function GSE.isSpecIDForCurrentClass(specID)
-    local _, specname, specdescription, specicon, _, specrole, specclass = GetSpecializationInfoByID(specID)
+    -- Use GetTalentTabInfo instead of GetSpecializationInfoByID
+    local _, specname, _, specicon, _, specrole = GetTalentTabInfo(specID)
     local currentclassDisplayName, currentenglishclass, currentclassId = UnitClass("player")
-    if specID > 15 then
-        GSE.PrintDebugMessage("Checking if specID " .. specID .. " " .. specclass .. " equals " .. currentenglishclass)
+    
+    if specID > 11 then -- MoP only has 11 classes
+        GSE.PrintDebugMessage("Checking if specID " .. specID .. " " .. specrole .. " equals " .. currentenglishclass)
     else
         GSE.PrintDebugMessage("Checking if specID " .. specID .. " equals currentclassid " .. currentclassId)
     end
-    return (specclass == currentenglishclass or specID == currentclassId)
+    return (specrole == currentenglishclass or specID == currentclassId)
 end
 
 function GSE.GetSpecNames()
@@ -101,35 +104,22 @@ end
 
 --- Returns the current Talent Selections as a string
 function GSE.GetCurrentTalents()
-    local talents
-
-    -- force load the addon
-    local addonName = "Blizzard_PlayerSpells"
-
-    xpcall(
-        function()
-            local loaded, reason = C_AddOns.LoadAddOn(addonName)
-
-            if not loaded then
-                talents = ""
-                GSE.PrintDebugMessage(reason, "TALENTS")
-            else
-                if PlayerSpellsFrame and PlayerSpellsFrame.TalentsFrame then
-                    PlayerSpellsFrame.TalentsFrame:UpdateTreeInfo()
-                    talents = PlayerSpellsFrame.TalentsFrame:GetLoadoutExportString()
-                end
+    local talents = ""
+    -- In MoP we need to iterate through talent tiers
+    for tier = 1, MAX_TALENT_TIERS do
+        for column = 1, NUM_TALENT_COLUMNS do
+            local _, _, _, selected = GetTalentInfo(tier, column, GetActiveSpecGroup())
+            if selected then
+                talents = talents .. tier .. "," .. column .. "/"
             end
-            return talents
-        end,
-        function()
-            return talents
         end
-    )
+    end
+    return talents
 end
 
 --- Experimental attempt to load a WeakAuras string.
 function GSE.LoadWeakAura(str)
-    if C_AddOns.IsAddOnLoaded("WeakAuras") then
+    if IsAddOnLoaded("WeakAuras") then
         WeakAuras.OpenOptions()
         WeakAuras.OpenOptions()
         WeakAuras.Import(str)
@@ -160,7 +150,7 @@ function GSE.ClearCommonKeyBinds()
     GSE_C = {}
     GSE_C["KeyBindings"] = {}
     GSE_C["KeyBindings"][char .. "-" .. realm] = {}
-    GSE_C["KeyBindings"][char .. "-" .. realm][tostring(GetSpecialization())] = {}
+    GSE_C["KeyBindings"][char .. "-" .. realm][tostring(GetActiveTalentGroup())] = {}
     -- Save for this character
     SaveBindings(2)
     GSE.Print("Common Keybinding combinations cleared for this character.")
@@ -189,7 +179,7 @@ function GSE.setActionButtonUseKeyDown()
     local state = GSEOptions.CvarActionButtonState and GSEOptions.CvarActionButtonState or "DONTFORCE"
 
     if state == "UP" then
-        C_CVar.SetCVar("ActionButtonUseKeyDown", 0)
+        SetCVar("ActionButtonUseKeyDown", 0)  -- Use SetCVar instead of C_CVar
         GSE.Print(
             L[
                 "The UI has been set to KeyUp configuration.  The /click command needs to be `/click TEMPLATENAME` You will need to check your macros and adjust your click commands."
@@ -197,7 +187,7 @@ function GSE.setActionButtonUseKeyDown()
             L["GSE"] .. " " .. L["Troubleshooting"]
         )
     elseif state == "DOWN" then
-        C_CVar.SetCVar("ActionButtonUseKeyDown", 1)
+        SetCVar("ActionButtonUseKeyDown", 1)  -- Use SetCVar instead of C_CVar
         GSE.Print(
             L[
                 "The UI has been set to KeyDown configuration.  The /click command needs to be `/click TEMPLATENAME LeftButton t` (Note the 't' here is required along with the LeftButton.)  You will need to check your macros and adjust your click commands."
@@ -208,17 +198,9 @@ function GSE.setActionButtonUseKeyDown()
     GSE.ReloadSequences()
 end
 
+-- Remove functions that use modern talent system APIs
 function GSE.GetSelectedLoadoutConfigID()
-    GSE.GetCurrentTalents()
-    local lastSelected =
-        PlayerUtil.GetCurrentSpecID() and C_ClassTalents.GetLastSelectedSavedConfigID(PlayerUtil.GetCurrentSpecID())
-    local selectionID =
-        PlayerSpellsFrame and PlayerSpellsFrame.TalentsFrame and PlayerSpellsFrame.TalentsFrame.LoadoutDropDown and
-        PlayerSpellsFrame.TalentsFrame.LoadoutDropDown.GetSelectionID and
-        PlayerSpellsFrame.TalentsFrame.LoadoutDropDown:GetSelectionID()
-
-    -- the priority in authoritativeness is [default UI's dropdown] > [API] > ['ActiveConfigID'] > nil
-    return selectionID or lastSelected or C_ClassTalents.GetActiveConfigID() or nil -- nil happens when you don't have any spec selected, e.g. on a freshly created character
+    return nil  -- MoP doesn't have loadouts
 end
 
 GSE.DebugProfile("CharacterFuntions")

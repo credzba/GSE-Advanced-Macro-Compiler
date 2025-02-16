@@ -1,6 +1,5 @@
 -- GLOBALS: GSE
-GSE =
-    LibStub("AceAddon-3.0"):NewAddon(
+GSE = LibStub("AceAddon-3.0"):NewAddon(
     "GSE",
     "AceConsole-3.0",
     "AceEvent-3.0",
@@ -11,9 +10,7 @@ GSE =
 GSE.L = LibStub("AceLocale-3.0"):GetLocale("GSE")
 GSE.Static = {}
 
-GSE.WagoAnalytics = LibStub("WagoAnalytics"):Register("kGr0YY6y")
-
-GSE.VersionString = C_AddOns.GetAddOnMetadata("GSE", "Version")
+GSE.VersionString = GetAddOnMetadata("GSE", "Version")
 
 --@debug@
 if GSE.VersionString:find("version") then
@@ -34,7 +31,7 @@ GSE.GUI = {}
 GSE.V = {}
 GSE.BooleanVariables = {}
 GSE.PlayerEntered = false
-GSE.WagoAnalytics:Switch("Patron", GSE.Patron)
+
 local L = GSE.L
 local Statics = GSE.Static
 local GNOME = "|cFFFFFFFFGS|r|cFF00FFFFE|r"
@@ -49,10 +46,7 @@ end
 function GSE.split(source, delimiters)
     local elements = {}
     local pattern = "([^" .. delimiters .. "]+)"
-    local _ =
-        string.gsub(
-        source,
-        pattern,
+    local _ = string.gsub(source, pattern,
         function(value)
             elements[#elements + 1] = value
         end
@@ -60,9 +54,10 @@ function GSE.split(source, delimiters)
     return elements
 end
 
-local gameversion, _, _, _, _, buildType = GetBuildInfo()
+local gameversion, _, _, _, buildType = GetBuildInfo()
 local majorVersion = GSE.split(gameversion, ".")
 
+-- For MoP this will be set to 5
 GSE.GameMode = tonumber(majorVersion[1])
 
 --- This function takes a version String and returns a version number.
@@ -158,7 +153,7 @@ end
 function GSE.DebugProfile(event)
     local currentTimeStop = debugprofilestop()
     if GSE.ProfileStop then
-        GSE.WagoAnalytics:SetCounter("Init_" .. event, currentTimeStop - GSE.ProfileStop)
+        -- Removed WagoAnalytics counter
     end
     GSE.ProfileStop = currentTimeStop
 end

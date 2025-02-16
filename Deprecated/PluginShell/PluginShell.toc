@@ -1,4 +1,4 @@
-## Interface: 110007
+## Interface: 50400, 110007
 ## Title: |cFFFFFFFFGS|r|cFF00FFFFE|r |cFF808080Plugin Shell|r
 ## Notes: Sample of a plugin for GSE3
 ## Author: TimothyLuke
